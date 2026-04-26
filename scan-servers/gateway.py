@@ -288,15 +288,27 @@ async def run_scan_background(
                   f"errors={intel_summary.get('errors')}",
                   flush=True)
             sev = intel_summary.get("severity_counts") or {}
-            # Use matched-finding severities as the canonical counts when
-            # the intel pipeline produced rows; otherwise leave count as
-            # the raw tool finding count for visibility.
-            if intel_summary.get("matched_fingerprints"):
+            intel_ran = (
+                not intel_summary.get("skipped")
+                and not intel_summary.get("errors")
+            )
+            # When the intel pipeline ran successfully (whether or not it
+            # produced matches), the canonical finding count is the number
+            # of CVE-classified findings — i.e. the sum of severity buckets.
+            # This guarantees the colored severity dots in the UI always
+            # add up to `total_findings`. The raw tool item count remains
+            # available in raw_output for context.
+            if intel_ran:
+                critical = sev.get("critical_count", 0)
+                high     = sev.get("high_count", 0)
+                medium   = sev.get("medium_count", 0)
+                low      = sev.get("low_count", 0)
                 update_payload.update({
-                    "critical_count": sev.get("critical_count", 0),
-                    "high_count":     sev.get("high_count", 0),
-                    "medium_count":   sev.get("medium_count", 0),
-                    "low_count":      sev.get("low_count", 0),
+                    "critical_count": critical,
+                    "high_count":     high,
+                    "medium_count":   medium,
+                    "low_count":      low,
+                    "total_findings": critical + high + medium + low,
                 })
         except Exception as e:
             print(f"[gateway] intel({scan_id}) failed: "
@@ -542,13 +554,19 @@ async def reimport_scan_intel(scan_id: str, authorization: str = Header(None)):
         supabase_service_key=SUPABASE_SERVICE_KEY,
     )
 
-    if summary.get("matched_fingerprints"):
-        sev = summary["severity_counts"]
+    intel_ran = not summary.get("skipped") and not summary.get("errors")
+    if intel_ran:
+        sev = summary.get("severity_counts") or {}
+        critical = sev.get("critical_count", 0)
+        high     = sev.get("high_count", 0)
+        medium   = sev.get("medium_count", 0)
+        low      = sev.get("low_count", 0)
         await update_scan_in_supabase(scan_id, {
-            "critical_count": sev.get("critical_count", 0),
-            "high_count":     sev.get("high_count", 0),
-            "medium_count":   sev.get("medium_count", 0),
-            "low_count":      sev.get("low_count", 0),
+            "critical_count": critical,
+            "high_count":     high,
+            "medium_count":   medium,
+            "low_count":      low,
+            "total_findings": critical + high + medium + low,
         })
 
     return summary

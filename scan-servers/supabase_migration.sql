@@ -107,5 +107,32 @@ ORDER BY started_at DESC;
 
 
 -- =============================================================
+-- 6. get_user_emails RPC for AdminPanel
+-- Returns auth.users.email for a list of auth user_ids.
+-- Admin-only (checked via has_role).
+-- =============================================================
+CREATE OR REPLACE FUNCTION public.get_user_emails(user_ids text[])
+RETURNS TABLE(user_id text, email text)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, auth
+AS $$
+BEGIN
+  IF NOT public.has_role(auth.uid(), 'admin') THEN
+    RAISE EXCEPTION 'Admin access required';
+  END IF;
+
+  RETURN QUERY
+    SELECT u.id::text, u.email::text
+    FROM auth.users u
+    WHERE u.id::text = ANY(user_ids);
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.get_user_emails(text[]) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.get_user_emails(text[]) TO authenticated;
+
+
+-- =============================================================
 -- Done!
 -- =============================================================
