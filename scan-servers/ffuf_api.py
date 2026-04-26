@@ -1,9 +1,11 @@
-import subprocess
 import shutil
 import json
 import tempfile
 import os
 import random
+import string
+import urllib.parse
+import urllib.request
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -19,16 +21,19 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-TIMEOUT_STEALTH = 3600
-TIMEOUT_NORMAL  = 2400
+TIMEOUT_STEALTH = 2400
+TIMEOUT_NORMAL  = 1200
 
 WORDLISTS = [
     "/usr/share/seclists/Discovery/Web-Content/directory-list-2.3-medium.txt",
+    "/usr/share/seclists/Discovery/Web-Content/raft-medium-directories.txt",
     "/usr/share/seclists/Discovery/Web-Content/directory-list-2.3-small.txt",
+    "/usr/share/seclists/Discovery/Web-Content/big.txt",
+    "/usr/share/seclists/Discovery/Web-Content/common.txt",
     "/usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt",
     "/usr/share/wordlists/dirbuster/directory-list-2.3-small.txt",
+    "/usr/share/wordlists/dirb/big.txt",
     "/usr/share/wordlists/dirb/common.txt",
-    "/usr/share/seclists/Discovery/Web-Content/common.txt",
 ]
 
 EXTENSIONS = ".php,.html,.htm,.asp,.aspx,.js,.json,.xml,.txt,.bak,.old,.conf,.config,.env,.log,.zip,.sql,.db"
@@ -40,43 +45,114 @@ USER_AGENTS = [
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Safari/605.1.15",
     "Mozilla/5.0 (X11; Linux x86_64; rv:125.0) Gecko/20100101 Firefox/125.0",
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36 Edg/124.0.0.0",
-    "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1",
 ]
 
 FALLBACK_WORDS = [
-    "admin", "administrator", "login", "dashboard", "panel", "cpanel",
-    "api", "api/v1", "api/v2", "v1", "v2", "graphql", "rest",
-    "config", "configuration", "settings", "setup", "install",
-    "backup", "backups", "bak", "old", "temp", "tmp", "cache",
-    "test", "testing", "dev", "development", "staging", "prod",
-    "debug", "trace", "logs", "log",
-    "upload", "uploads", "file", "files", "media", "images",
-    "static", "assets", "css", "js", "fonts", "img",
-    "wp-admin", "wp-login.php", "wp-content", "wp-includes",
-    "phpmyadmin", "pma", "myadmin", "mysql", "adminer",
-    "xmlrpc.php", "readme.html", "license.txt",
-    ".git", ".env", ".htaccess", ".htpasswd", ".DS_Store",
+    "admin", "administrator", "login", "dashboard", "panel", "cpanel", "manage", "manager",
+    "api", "api/v1", "api/v2", "api/v3", "v1", "v2", "graphql", "rest", "rpc",
+    "config", "configuration", "settings", "setup", "install", "installer",
+    "backup", "backups", "bak", "old", "temp", "tmp", "cache", "archive",
+    "test", "testing", "dev", "development", "staging", "prod", "production", "demo",
+    "debug", "trace", "logs", "log", "error", "errors",
+    "upload", "uploads", "file", "files", "media", "images", "img", "image",
+    "static", "assets", "css", "js", "fonts", "resources",
+    "wp-admin", "wp-login.php", "wp-content", "wp-includes", "wordpress",
+    "phpmyadmin", "pma", "myadmin", "mysql", "adminer", "dbadmin",
+    "xmlrpc.php", "readme.html", "readme.txt", "license.txt", "changelog.txt",
+    ".git", ".env", ".htaccess", ".htpasswd", ".DS_Store", ".svn",
     "web.config", "crossdomain.xml", "sitemap.xml", "robots.txt",
-    "server-status", "server-info",
-    "console", "shell", "cmd", "exec",
-    "user", "users", "account", "accounts", "profile",
-    "register", "signup", "logout", "auth", "oauth",
-    "forgot", "reset", "password", "passwd",
-    "search", "query", "feed", "rss", "ajax",
-    "data", "database", "export", "import", "download",
-    "cgi-bin", "scripts", "bin", "include", "includes",
-    "lib", "library", "vendor", "node_modules",
-    "swagger", "swagger-ui", "openapi", "docs", "documentation",
-    "healthz", "health", "status", "ping", "metrics", "monitor",
-    "admin.php", "admin.html", "index.php", "index.html",
-    "login.php", "login.html", "signin.php",
-    "register.php", "signup.php",
-    "config.php", "config.yml", "config.json", "settings.php",
-    "database.php", "db.php", "connection.php",
-    "upload.php", "uploader.php", "filemanager",
-    "info.php", "phpinfo.php", "test.php",
-    "error_log", "error.log", "access.log", "debug.log",
+    "server-status", "server-info", "nginx_status", "info.php", "phpinfo.php",
+    "console", "shell", "cmd", "exec", "terminal", "webshell",
+    "user", "users", "account", "accounts", "profile", "profiles",
+    "register", "signup", "logout", "auth", "oauth", "sso", "saml",
+    "forgot", "reset", "password", "passwd", "credentials",
+    "search", "query", "feed", "rss", "ajax", "xhr",
+    "data", "database", "export", "import", "download", "report", "reports",
+    "cgi-bin", "scripts", "bin", "include", "includes", "lib", "vendor",
+    "swagger", "swagger-ui", "openapi", "docs", "documentation", "apidoc",
+    "healthz", "health", "status", "ping", "metrics", "monitor", "actuator",
+    "admin.php", "admin.html", "index.php", "index.html", "index.asp",
+    "login.php", "login.html", "login.asp", "signin.php", "signin.html",
+    "register.php", "signup.php", "logout.php",
+    "config.php", "config.yml", "config.json", "settings.php", "app.config",
+    "database.php", "db.php", "connection.php", "connect.php",
+    "upload.php", "uploader.php", "filemanager", "fileupload",
+    "info.php", "phpinfo.php", "test.php", "check.php",
+    "error_log", "error.log", "access.log", "debug.log", "app.log",
+    "app", "application", "portal", "intranet", "extranet",
+    "private", "hidden", "secret", "secure", "internal", "restricted",
+    "finance", "hr", "legal", "sales", "marketing", "engineering",
+    "forum", "blog", "cms", "shop", "store", "cart", "checkout",
+    "payment", "invoice", "billing", "subscription",
+    "ticket", "tickets", "helpdesk", "support", "feedback",
+    "mail", "email", "smtp", "webmail", "newsletter",
+    "home", "welcome", "main", "index", "default",
+    "about", "contact", "faq", "help", "terms", "privacy",
+    "token", "tokens", "key", "keys", "api-key", "secret-key",
+    "certificate", "certs", "ssl", "tls",
+    "old-admin", "new-admin", "backend", "frontend",
+    "system", "sys", "root", "core", "base",
+    "public", "private", "protected", "common",
+    "ajax.php", "api.php", "callback.php", "webhook.php", "hook.php",
+    "proxy.php", "redirect.php", "redir.php",
+    "cron.php", "task.php", "jobs.php", "queue.php",
+    "install.php", "setup.php", "update.php", "upgrade.php",
+    "verify.php", "validate.php", "activate.php",
+    "edit.php", "delete.php", "add.php", "remove.php", "create.php",
+    "view.php", "show.php", "display.php", "list.php", "get.php",
+    "send.php", "post.php", "submit.php", "process.php", "handle.php",
+    "user.php", "users.php", "member.php", "members.php",
+    "admin2", "admin1", "admin3", "administrator2",
+    "ajax", "api2", "backup2", "logs2",
+    "sql", "mysql", "sqlite", "redis", "mongodb",
+    "docker", "kubernetes", "k8s", "deploy",
+    "ci", "cd", "jenkins", "gitlab", "github",
+    "aws", "azure", "gcp", "cloud",
 ]
+
+SEVERITY_MAP = {
+    "critical": [
+        ".env", ".git", ".svn", "phpinfo.php", "info.php", "web.config",
+        "database.php", "db.php", "connection.php", ".htpasswd",
+        "config.php", "backup", "backups", ".bak", ".sql", ".db",
+        "shell", "cmd", "exec", "webshell", "adminer", "phpmyadmin",
+        "secret", "credentials", "token", "api-key", "secret-key",
+    ],
+    "high": [
+        "admin", "administrator", "cpanel", "panel", "wp-admin",
+        "wp-login.php", "upload.php", "uploader.php", "filemanager",
+        "login.php", "signin.php", "console", "debug",
+        "server-status", "server-info", "nginx_status", ".DS_Store", ".htaccess",
+        "swagger", "openapi", "graphql", "actuator",
+        "private", "internal", "restricted", "manage", "manager",
+    ],
+    "medium": [
+        "api", "api/v1", "api/v2", "api/v3", "graphql", "swagger-ui",
+        "dev", "development", "staging", "test", "testing", "demo",
+        "config", "settings", "setup", "configuration", "install",
+        "logs", "log", "error_log", "access.log", "debug.log",
+        "crossdomain.xml", "xmlrpc.php", "cors", "webhook",
+    ],
+    "low": [
+        "robots.txt", "sitemap.xml", "readme.html", "license.txt", "changelog.txt",
+        "docs", "documentation", "static", "assets", "public",
+    ],
+}
+
+
+def classify_severity(path: str, status: int) -> str:
+    path_lower = path.lower()
+    for severity, keywords in SEVERITY_MAP.items():
+        for kw in keywords:
+            if kw in path_lower:
+                return severity
+    if status == 500:
+        return "high"
+    if status in (401, 403):
+        return "medium"
+    if status in (301, 302, 307, 308):
+        return "low"
+    return "info"
 
 
 class ScanRequest(BaseModel):
@@ -95,49 +171,208 @@ def get_best_wordlist() -> str:
     return FALLBACK_WORDLIST
 
 
-def format_results(data: dict, target: str, mode: str) -> str:
-    results = data.get("results", [])
-    if not results:
-        return f"FFUF [{mode} MODE]: No results found for {target}."
+def build_base_url(target: str) -> str:
+    url = target if "://" in target else f"http://{target}"
+    parsed = urllib.parse.urlparse(url)
+    base = f"{parsed.scheme}://{parsed.netloc}"
+    path = parsed.path
+    path = path.replace("FUZZ", "").rstrip("/")
+    return f"{base}{path}/"
 
-    by_status: dict[int, list] = {}
+
+def _probe(test_url: str, agent: str, timeout: int = 8):
+    """Single HTTP probe → (status, size, words, lines) or None on failure."""
+    try:
+        req = urllib.request.Request(
+            test_url,
+            headers={
+                "User-Agent": agent,
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            },
+        )
+        # Disable SSL verification for self-signed / lab targets.
+        import ssl
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+        with urllib.request.urlopen(req, timeout=timeout, context=ctx) as resp:
+            body = resp.read()
+            text = body.decode("utf-8", errors="ignore")
+            return (
+                resp.status,
+                len(body),
+                len(text.split()),
+                len(text.splitlines()),
+            )
+    except Exception:
+        return None
+
+
+def resolve_reachable_base(base_url: str, agent: str) -> str:
+    """
+    Make sure the base URL is actually reachable. If http:// fails, try https://.
+    Returns the working base URL (with trailing slash) or the original if neither works.
+    """
+    if _probe(base_url, agent, timeout=8) is not None:
+        return base_url
+
+    parsed = urllib.parse.urlparse(base_url)
+    if parsed.scheme == "http":
+        alt = urllib.parse.urlunparse(("https",) + parsed[1:])
+        if _probe(alt, agent, timeout=8) is not None:
+            print(f"[FFUF-RESOLVE] http:// unreachable → falling back to https://", flush=True)
+            return alt
+    elif parsed.scheme == "https":
+        alt = urllib.parse.urlunparse(("http",) + parsed[1:])
+        if _probe(alt, agent, timeout=8) is not None:
+            print(f"[FFUF-RESOLVE] https:// unreachable → falling back to http://", flush=True)
+            return alt
+
+    return base_url
+
+
+def calibrate_baseline(base_url: str, agent: str) -> list[str]:
+    """
+    Probe several random non-existent paths to fingerprint the site's default
+    "not-found" response. Filter on size + words + lines so SPA shells (where
+    every unknown URL returns the same index.html) can still be filtered out
+    accurately, while real content (API endpoints, static files of different
+    sizes) still surfaces.
+    """
+    filter_args: list[str] = []
+    samples: list[tuple[int, int, int, int]] = []  # (status, size, words, lines)
+
+    for _ in range(3):
+        rand_path = "".join(random.choices(string.ascii_lowercase + string.digits, k=20))
+        result = _probe(f"{base_url}{rand_path}", agent)
+        if result is not None:
+            samples.append(result)
+
+    if not samples:
+        # Couldn't reach the target at all — fall back to ffuf's built-in
+        # auto-calibration (it will probe on its own once running).
+        print("[FFUF-CALIBRATE] Could not reach target — using ffuf auto-calibration", flush=True)
+        filter_args += ["-ac", "-acc", "/", "-acc", "index", "-acc", "404page"]
+        return filter_args
+
+    statuses = sorted({s[0] for s in samples})
+    sizes    = sorted({s[1] for s in samples})
+    words    = sorted({s[2] for s in samples})
+    lines    = sorted({s[3] for s in samples})
+
+    print(f"[FFUF-CALIBRATE] Baseline statuses={statuses} sizes={sizes} words={words} lines={lines}", flush=True)
+
+    # Soft-404 detection: server returns 200 for unknown paths (typical SPAs,
+    # frameworks like React/Angular/Vue, or misconfigured catch-alls).
+    if 200 in statuses:
+        print("[FFUF-CALIBRATE] Soft-404 / SPA detected — filtering by size+words+lines", flush=True)
+
+    # Multi-dimensional filter: a real find has to differ in at least one
+    # of (size, words, lines) from EVERY baseline sample.
+    if sizes:
+        filter_args += ["-fs", ",".join(str(s) for s in sizes)]
+    if words and len(words) <= 5:
+        filter_args += ["-fw", ",".join(str(w) for w in words)]
+    if lines and len(lines) <= 5:
+        filter_args += ["-fl", ",".join(str(l) for l in lines)]
+
+    return filter_args
+
+
+def deduplicate_noise(results: list, threshold: int = 6) -> tuple[list, list]:
+    """
+    Remove "noise clusters": groups of findings sharing the same response
+    fingerprint (status + size + words + lines). When more than `threshold`
+    paths return identical responses, it is virtually always a blanket
+    WAF/Cloudflare page or a generic server-error template, not real content.
+
+    Returns (real_findings, dropped_clusters_summary).
+    """
+    from collections import defaultdict
+    clusters: dict[tuple, list] = defaultdict(list)
     for r in results:
-        code = r.get("status", 0)
-        by_status.setdefault(code, []).append(r)
+        key = (
+            r.get("status", 0),
+            r.get("length", 0),
+            r.get("words", 0),
+            r.get("lines", 0),
+        )
+        clusters[key].append(r)
 
-    status_labels = {
-        200: "OK 200",
-        201: "Created 201",
-        204: "No Content 204",
-        301: "Redirect 301",
-        302: "Found 302",
-        307: "Temp Redirect 307",
-        400: "Bad Request 400",
-        401: "Unauthorized 401",
-        403: "Forbidden 403",
-        405: "Method Not Allowed 405",
-        500: "Server Error 500",
-        503: "Unavailable 503",
-    }
+    real: list = []
+    dropped: list = []
+    for key, items in clusters.items():
+        if len(items) >= threshold:
+            dropped.append({
+                "status": key[0], "size": key[1], "words": key[2], "lines": key[3],
+                "count":  len(items),
+                "sample": items[0].get("input", {}).get("FUZZ", ""),
+            })
+        else:
+            real.extend(items)
+    return real, dropped
+
+
+def format_results(data: dict, target: str, mode: str) -> str:
+    raw_results = data.get("results", [])
+    if not raw_results:
+        return f"FFUF [{mode} MODE]: No accessible paths found for {target}."
+
+    results, dropped = deduplicate_noise(raw_results)
+
+    counts = {"critical": 0, "high": 0, "medium": 0, "low": 0, "info": 0}
+    by_severity: dict[str, list] = {s: [] for s in counts}
+
+    for r in results:
+        path     = r.get("input", {}).get("FUZZ", "")
+        status   = r.get("status", 0)
+        size     = r.get("length", 0)
+        words    = r.get("words", 0)
+        redirect = r.get("redirectlocation", "")
+        severity = classify_severity(path, status)
+        counts[severity] += 1
+        by_severity[severity].append({
+            "path": path, "status": status,
+            "size": size, "words": words, "redirect": redirect,
+        })
 
     lines = [
         f"FFUF [{mode} MODE] — Target: {target}",
-        f"Total findings: {len(results)}",
+        f"Real findings: {len(results)}  (filtered out {len(raw_results) - len(results)} noise hits)",
+        f"Critical: {counts['critical']}  High: {counts['high']}  "
+        f"Medium: {counts['medium']}  Low: {counts['low']}  Info: {counts['info']}",
         "=" * 60,
     ]
 
-    for code in sorted(by_status.keys()):
-        label = status_labels.get(code, str(code))
-        lines.append(f"\n[{label}] ({len(by_status[code])} found):")
+    if dropped:
+        lines.append("")
+        lines.append("Filtered noise clusters (likely WAF/Cloudflare/error templates — NOT vulnerabilities):")
+        for d in sorted(dropped, key=lambda x: -x["count"]):
+            lines.append(
+                f"  - {d['count']} paths returned identical "
+                f"HTTP {d['status']} (size={d['size']}, words={d['words']}, lines={d['lines']}) "
+                f"e.g. /{d['sample']}"
+            )
+        lines.append("=" * 60)
+
+    severity_labels = {
+        "critical": "[CRITICAL]",
+        "high":     "[HIGH]    ",
+        "medium":   "[MEDIUM]  ",
+        "low":      "[LOW]     ",
+        "info":     "[INFO]    ",
+    }
+
+    for severity in ("critical", "high", "medium", "low", "info"):
+        items = by_severity[severity]
+        if not items:
+            continue
+        lines.append(f"\n{severity_labels[severity]} ({len(items)} found):")
         lines.append("-" * 40)
-        for r in by_status[code]:
-            path     = r.get("input", {}).get("FUZZ", "")
-            size     = r.get("length", 0)
-            words    = r.get("words", 0)
-            redirect = r.get("redirectlocation", "")
-            line = f"  /{path}  [Size:{size} Words:{words}]"
-            if redirect:
-                line += f"  -> {redirect}"
+        for r in items:
+            line = f"  /{r['path']}  [HTTP {r['status']} | Size:{r['size']} Words:{r['words']}]"
+            if r["redirect"]:
+                line += f"  -> {r['redirect']}"
             lines.append(line)
 
     return "\n".join(lines)
@@ -153,6 +388,8 @@ def health():
         "installed": ffuf_path is not None,
         "path": ffuf_path,
         "wordlist": wordlist,
+        "wordlist_size": os.path.getsize(wordlist) if os.path.exists(wordlist) else 0,
+        "tip": "Install SecLists for best results: sudo apt install seclists",
     }
 
 
@@ -172,11 +409,13 @@ def run_ffuf(req: ScanRequest):
         )
 
     wordlist = get_best_wordlist()
-    url = target if "://" in target else f"http://{target}"
-    if not url.endswith("/"):
-        url += "/"
+    url      = build_base_url(target)
+    agent    = random.choice(USER_AGENTS)
 
-    agent = random.choice(USER_AGENTS)
+    # Auto-fallback http <-> https if the original scheme isn't reachable.
+    url = resolve_reachable_base(url, agent)
+
+    filter_args = calibrate_baseline(url, agent)
 
     with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as tmp:
         out_file = tmp.name
@@ -189,30 +428,30 @@ def run_ffuf(req: ScanRequest):
         "-mc", "200,201,204,301,302,307,308,401,403,405,500,503",
         "-fc", "404",
         "-ic",
-        "-r",
+        "-v",
         "-o", out_file,
         "-of", "json",
         "-H", f"User-Agent: {agent}",
         "-H", "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
         "-H", "Accept-Language: en-US,en;q=0.9",
         "-H", "Connection: keep-alive",
-    ]
+    ] + filter_args
 
     if req.stealth:
         timeout = TIMEOUT_STEALTH
         mode    = "STEALTH"
         cmd += [
-            "-t", "10",
-            "-rate", "30",
-            "-p", "0.5-1.5",
+            "-t", "20",
+            "-rate", "60",
+            "-p", "0.1-0.3",
             "-timeout", "15",
         ]
     else:
         timeout = TIMEOUT_NORMAL
         mode    = "NORMAL"
         cmd += [
-            "-t", "40",
-            "-rate", "150",
+            "-t", "50",
+            "-rate", "200",
             "-timeout", "10",
         ]
 
@@ -229,10 +468,11 @@ def run_ffuf(req: ScanRequest):
                 data = json.load(f)
             output = format_results(data, target, mode)
         else:
-            if raw_stream.strip():
-                output = f"FFUF [{mode}]:\n{raw_stream}"
-            else:
-                output = f"FFUF [{mode} MODE]: No accessible paths found on {target}."
+            output = (
+                f"FFUF [{mode}]:\n{raw_stream}"
+                if raw_stream.strip()
+                else f"FFUF [{mode} MODE]: No accessible paths found on {target}."
+            )
 
     except json.JSONDecodeError:
         output = f"FFUF returned invalid JSON.\nRaw:\n{raw_stream}"
