@@ -24,7 +24,9 @@ const Index = () => {
     },
   });
 
-  // Group chart data by chart_key
+  // Group chart data by chart_key, preserving insertion order so the
+  // dashboard mirrors whatever donut definitions exist in the chart_data
+  // table without us having to hardcode keys here.
   const groupedCharts = chartData.reduce((acc, item) => {
     if (!acc[item.chart_key]) {
       acc[item.chart_key] = { title: item.chart_title, data: [] };
@@ -36,6 +38,8 @@ const Index = () => {
     });
     return acc;
   }, {} as Record<string, { title: string; data: { name: string; value: number; color: string }[] }>);
+
+  const chartList = Object.values(groupedCharts);
 
   return (
     <div className="flex h-screen overflow-hidden">
@@ -49,20 +53,27 @@ const Index = () => {
         <main className="flex-1 overflow-y-auto p-6 space-y-6">
           <FilterBar />
           <SeverityCards />
-          <div className="grid grid-cols-2 gap-4">
-            {groupedCharts["exprt"] && (
-              <DonutChart title={groupedCharts["exprt"].title} data={groupedCharts["exprt"].data} />
-            )}
-            {groupedCharts["type"] && (
-              <DonutChart title={groupedCharts["type"].title} data={groupedCharts["type"].data} />
-            )}
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            {groupedCharts["perimeter"] && (
-              <DonutChart title={groupedCharts["perimeter"].title} data={groupedCharts["perimeter"].data} />
-            )}
-            <ReviewStatusCard />
-          </div>
+          {chartList.length > 0 && (
+            <div className="grid grid-cols-2 gap-4">
+              {chartList.map((chart, i) => (
+                <DonutChart key={i} title={chart.title} data={chart.data} />
+              ))}
+              {chartList.length % 2 === 1 && <ReviewStatusCard />}
+            </div>
+          )}
+          {chartList.length === 0 && (
+            <div className="grid grid-cols-2 gap-4">
+              <div className="bg-card border border-border rounded-lg p-5 text-sm text-muted-foreground">
+                No chart segments configured. Add rows to the <code>chart_data</code> table to populate this dashboard.
+              </div>
+              <ReviewStatusCard />
+            </div>
+          )}
+          {chartList.length > 0 && chartList.length % 2 === 0 && (
+            <div className="grid grid-cols-1 gap-4">
+              <ReviewStatusCard />
+            </div>
+          )}
           <ScannedAssetsTable />
         </main>
       </div>

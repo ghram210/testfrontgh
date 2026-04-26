@@ -4,7 +4,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import AppSidebar from "@/components/AppSidebar";
 import TopBar from "@/components/TopBar";
-import { Eye, Trash2, CheckCircle2, Loader2, Clock, AlertCircle, ChevronDown, ChevronUp } from "lucide-react";
+import { Eye, Trash2, CheckCircle2, Loader2, Clock, AlertCircle, ChevronDown, ChevronUp, Pause, Play, PauseCircle } from "lucide-react";
+import { toast } from "sonner";
+
+const GATEWAY_URL = "http://localhost:8080";
 
 interface ScanResult {
   id: string;
@@ -30,6 +33,11 @@ const statusConfig: Record<string, { label: string; icon: React.ReactNode; class
     label: "Running",
     icon: <Loader2 className="w-3 h-3 animate-spin" />,
     className: "bg-blue-500/20 text-blue-400",
+  },
+  paused: {
+    label: "Paused",
+    icon: <PauseCircle className="w-3 h-3" />,
+    className: "bg-muted text-muted-foreground",
   },
   completed: {
     label: "Completed",
@@ -69,6 +77,27 @@ const ScanResults = () => {
   });
 
   const hasRunningScans = scans.some((s) => s.status === "running" || s.status === "pending");
+
+  const pauseResumeMutation = useMutation({
+    mutationFn: async ({ id, action }: { id: string; action: "pause" | "resume" }) => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) throw new Error("Not authenticated");
+      const res = await fetch(`${GATEWAY_URL}/scan/${id}/${action}`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body?.detail || `Failed to ${action} scan`);
+      return body;
+    },
+    onSuccess: (_data, vars) => {
+      toast.success(vars.action === "pause" ? "Scan paused" : "Scan resumed");
+      queryClient.invalidateQueries({ queryKey: ["scan_results"] });
+    },
+    onError: (err: any) => {
+      toast.error(err?.message || "Failed to toggle scan");
+    },
+  });
 
   const selectedScanUpdated = selectedScan
     ? (scans.find((s) => s.id === selectedScan.id) ?? selectedScan)
@@ -173,7 +202,12 @@ const ScanResults = () => {
                                 <span className="w-2 h-2 rounded-full bg-blue-500" />
                                 <span className="text-foreground">{scan.low_count}</span>
                               </span>
-                              <span className="text-muted-foreground">{scan.total_findings} findings</span>
+                              <span
+                                className="text-muted-foreground"
+                                title="CVE-classified findings (sum of severity buckets). Raw tool output may contain more informational items — see Raw Output."
+                              >
+                                {scan.total_findings} classified findings
+                              </span>
                             </div>
                           )}
                           {scan.status === "running" && (
@@ -181,18 +215,49 @@ const ScanResults = () => {
                               <div className="bg-blue-500 h-full rounded-full animate-pulse" style={{ width: "70%" }} />
                             </div>
                           )}
+                          {scan.status === "paused" && (
+                            <div className="w-48 bg-muted rounded-full h-1.5 overflow-hidden">
+                              <div className="bg-muted-foreground/40 h-full rounded-full" style={{ width: "70%" }} />
+                            </div>
+                          )}
                         </div>
-                        {userRole === "admin" && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              deleteMutation.mutate(scan.id);
-                            }}
-                            className="text-destructive hover:text-destructive/80 transition-colors p-1"
-                          >
-                            <Trash2 className="w-5 h-5" />
-                          </button>
-                        )}
+                        <div className="flex items-center gap-1">
+                          {(scan.status === "running" || scan.status === "paused") && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                pauseResumeMutation.mutate({
+                                  id: scan.id,
+                                  action: scan.status === "running" ? "pause" : "resume",
+                                });
+                              }}
+                              disabled={pauseResumeMutation.isPending}
+                              title={scan.status === "running" ? "Pause scan" : "Resume scan"}
+                              className={`transition-colors p-1 disabled:opacity-50 ${
+                                scan.status === "running"
+                                  ? "text-blue-400 hover:text-blue-300"
+                                  : "text-muted-foreground hover:text-foreground"
+                              }`}
+                            >
+                              {scan.status === "running" ? (
+                                <Pause className="w-5 h-5" />
+                              ) : (
+                                <Play className="w-5 h-5" />
+                              )}
+                            </button>
+                          )}
+                          {userRole === "admin" && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                deleteMutation.mutate(scan.id);
+                              }}
+                              className="text-destructive hover:text-destructive/80 transition-colors p-1"
+                            >
+                              <Trash2 className="w-5 h-5" />
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
                   );
@@ -247,8 +312,11 @@ const ScanResults = () => {
                         </div>
                       )}
                       <div>
-                        <p className="text-xs text-muted-foreground">Total Findings</p>
+                        <p className="text-xs text-muted-foreground">Classified Findings</p>
                         <p className="text-foreground font-semibold">{selectedScanUpdated.total_findings}</p>
+                        <p className="text-[10px] text-muted-foreground mt-0.5">
+                          Sum of severity buckets (CVE-classified). Tool may have produced more raw items — see Raw Output.
+                        </p>
                       </div>
                     </div>
 
