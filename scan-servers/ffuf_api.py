@@ -10,7 +10,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from security import sanitize_target, sanitize_options
-from runner import run_streaming
+from runner import run_streaming, pause_process, resume_process
 
 app = FastAPI(title="FFUF API", version="1.0.0")
 
@@ -159,6 +159,7 @@ class ScanRequest(BaseModel):
     target: str
     options: str = ""
     stealth: bool = True
+    scan_id: str | None = None
 
 
 def get_best_wordlist() -> str:
@@ -461,7 +462,7 @@ def run_ffuf(req: ScanRequest):
     output = ""
     raw_stream = ""
     try:
-        raw_stream, rc = run_streaming(cmd, timeout=timeout, label="FFUF")
+        raw_stream, rc = run_streaming(cmd, timeout=timeout, label="FFUF", scan_id=req.scan_id)
 
         if os.path.exists(out_file) and os.path.getsize(out_file) > 0:
             with open(out_file) as f:
@@ -490,6 +491,22 @@ def run_ffuf(req: ScanRequest):
         "output": output,
         "status": "completed",
     }
+
+
+@app.post("/pause/{scan_id}")
+def pause(scan_id: str):
+    ok, msg = pause_process(scan_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail=msg)
+    return {"ok": True, "scan_id": scan_id, "message": msg}
+
+
+@app.post("/resume/{scan_id}")
+def resume(scan_id: str):
+    ok, msg = resume_process(scan_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail=msg)
+    return {"ok": True, "scan_id": scan_id, "message": msg}
 
 
 if __name__ == "__main__":

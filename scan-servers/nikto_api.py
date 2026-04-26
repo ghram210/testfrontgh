@@ -8,7 +8,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from security import sanitize_target, sanitize_options, extract_hostname
-from runner import run_streaming
+from runner import run_streaming, pause_process, resume_process
 
 app = FastAPI(title="Nikto API", version="1.0.0")
 
@@ -34,6 +34,7 @@ class ScanRequest(BaseModel):
     target: str
     options: str = ""
     stealth: bool = True
+    scan_id: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -219,7 +220,7 @@ def run_nikto(req: ScanRequest):
 
     mode_label = "STEALTH" if req.stealth else "NORMAL"
     try:
-        raw, rc = run_streaming(cmd, timeout=timeout, label="NIKTO")
+        raw, rc = run_streaming(cmd, timeout=timeout, label="NIKTO", scan_id=req.scan_id)
         if not raw.strip():
             output = f"NIKTO [{mode_label} MODE]: No output returned from Nikto."
         else:
@@ -234,6 +235,22 @@ def run_nikto(req: ScanRequest):
         "output": output,
         "status": "completed",
     }
+
+
+@app.post("/pause/{scan_id}")
+def pause(scan_id: str):
+    ok, msg = pause_process(scan_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail=msg)
+    return {"ok": True, "scan_id": scan_id, "message": msg}
+
+
+@app.post("/resume/{scan_id}")
+def resume(scan_id: str):
+    ok, msg = resume_process(scan_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail=msg)
+    return {"ok": True, "scan_id": scan_id, "message": msg}
 
 
 if __name__ == "__main__":

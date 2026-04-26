@@ -224,7 +224,12 @@ async def run_scan_background(
         async with httpx.AsyncClient() as client:
             resp = await client.post(
                 f"{tool_url}/scan",
-                json={"target": target, "options": effective_options, "stealth": stealth},
+                json={
+                    "target": target,
+                    "options": effective_options,
+                    "stealth": stealth,
+                    "scan_id": scan_id,
+                },
                 timeout=http_timeout,
             )
 
@@ -499,6 +504,75 @@ async def start_scan(
         "status": "running",
         "message": f"Scan started for {target} using {req.tool}",
     }
+
+
+async def _forward_pause_resume(scan_id: str, action: str) -> dict:
+    """Look up scan in Supabase, find its tool, and forward a
+    pause/resume call to the matching tool server. Updates the
+    scan's status so the UI can react. action ∈ {'pause','resume'}."""
+    async with httpx.AsyncClient() as client:
+        resp = await client.get(
+            f"{SUPABASE_URL}/rest/v1/scan_results",
+            params={"id": f"eq.{scan_id}", "select": "id,tool,status"},
+            headers=SUPABASE_HEADERS,
+            timeout=15,
+        )
+    if resp.status_code != 200 or not resp.json():
+        raise HTTPException(status_code=404, detail="Scan not found")
+
+    scan_row = resp.json()[0]
+    tool = (scan_row.get("tool") or "").upper()
+    current_status = scan_row.get("status") or ""
+    tool_url = TOOL_SERVERS.get(tool)
+    if not tool_url:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot {action} scan: tool '{tool}' has no live process "
+                   "(this scan may be a parent/aggregate scan or use an unknown tool).",
+        )
+
+    if action == "pause" and current_status != "running":
+        raise HTTPException(
+            status_code=409,
+            detail=f"Can only pause a running scan (current status: {current_status})",
+        )
+    if action == "resume" and current_status != "paused":
+        raise HTTPException(
+            status_code=409,
+            detail=f"Can only resume a paused scan (current status: {current_status})",
+        )
+
+    try:
+        async with httpx.AsyncClient() as client:
+            r = await client.post(f"{tool_url}/{action}/{scan_id}", timeout=15)
+    except httpx.HTTPError as e:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Tool server {tool} unreachable: {type(e).__name__}: {e}",
+        )
+
+    if r.status_code != 200:
+        raise HTTPException(
+            status_code=r.status_code,
+            detail=f"Tool server {tool} rejected {action}: {r.text[:300]}",
+        )
+
+    new_status = "paused" if action == "pause" else "running"
+    await update_scan_in_supabase(scan_id, {"status": new_status})
+
+    return {"ok": True, "scan_id": scan_id, "status": new_status, "tool": tool}
+
+
+@app.post("/scan/{scan_id}/pause")
+async def pause_scan(scan_id: str, authorization: str = Header(None)):
+    await get_admin_user(authorization)
+    return await _forward_pause_resume(scan_id, "pause")
+
+
+@app.post("/scan/{scan_id}/resume")
+async def resume_scan(scan_id: str, authorization: str = Header(None)):
+    await get_admin_user(authorization)
+    return await _forward_pause_resume(scan_id, "resume")
 
 
 @app.get("/scan/{scan_id}")
