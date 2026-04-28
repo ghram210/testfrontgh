@@ -42,18 +42,21 @@ const Index = () => {
   const chartList = [
     ...Object.values(groupedCharts),
     {
-      title: "Vulnerabilities by type",
+      title: "Vulnerabilities by status",
       data: [
-        { name: "Misconf", value: 20, color: "hsl(var(--muted-foreground))" },
-        { name: "Vuln", value: 6000, color: "hsl(var(--chart-critical))" },
-        { name: "Unknown", value: 3800, color: "hsl(var(--chart-medium))" },
+        { name: "Open", value: 12, color: "hsl(var(--chart-critical))" },
+        { name: "In Progress", value: 5, color: "hsl(var(--chart-medium))" },
+        { name: "Closed", value: 8, color: "hsl(var(--chart-low))" },
       ],
     },
     {
-      title: "IP addresses by perimeter",
+      title: "Assets by Risk",
       data: [
-        { name: "Official", value: 697, color: "hsl(var(--chart-cyan))" },
-        { name: "Unofficial", value: 736, color: "hsl(var(--chart-yellow))" },
+        { name: "Critical", value: 2, color: "hsl(var(--chart-critical))" },
+        { name: "High", value: 4, color: "hsl(var(--chart-high))" },
+        { name: "Medium", value: 7, color: "hsl(var(--chart-medium))" },
+        { name: "Low", value: 15, color: "hsl(var(--chart-low))" },
+        { name: "Info", value: 20, color: "hsl(var(--chart-purple))" },
       ],
     },
   ];
