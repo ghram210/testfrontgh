@@ -40,7 +40,14 @@ const Index = () => {
   }, {} as Record<string, { title: string; data: { name: string; value: number; color: string }[] }>);
 
   const chartList = [
-    ...Object.values(groupedCharts),
+    {
+      title: "Exploit Availability",
+      data: [
+        { name: "Actively Used", value: 3, color: "hsl(var(--chart-critical))" },
+        { name: "Available", value: 15, color: "hsl(var(--chart-high))" },
+        { name: "None", value: 45, color: "hsl(var(--chart-low))" },
+      ],
+    },
     {
       title: "Vulnerabilities by status",
       data: [
@@ -50,7 +57,7 @@ const Index = () => {
       ],
     },
     {
-      title: "Assets by Risk",
+      title: "Vulnerabilities by Severity",
       data: [
         { name: "Critical", value: 2, color: "hsl(var(--chart-critical))" },
         { name: "High", value: 4, color: "hsl(var(--chart-high))" },
