@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
 const severityColorMap: Record<string, { color: string; border: string }> = {
-  "VERY LOW": { color: "text-muted-foreground", border: "border-muted-foreground/30" },
+  INFO: { color: "text-severity-info", border: "border-severity-info/30" },
   LOW: { color: "text-severity-low", border: "border-severity-low/30" },
   MEDIUM: { color: "text-severity-medium", border: "border-severity-medium/30" },
   HIGH: { color: "text-severity-high", border: "border-severity-high/30" },
@@ -25,10 +25,14 @@ const SeverityCards = () => {
   return (
     <div className="grid grid-cols-5 gap-4">
       {stats.map((s) => {
-        const colors = severityColorMap[s.label] || { color: "text-foreground", border: "border-border" };
+        const label = s.label === "VERY LOW" ? "Info" : s.label;
+        const lookupLabel = s.label === "VERY LOW" ? "INFO" : s.label;
+        const colors = severityColorMap[lookupLabel] || { color: "text-foreground", border: "border-border" };
         return (
           <div key={s.id} className={`bg-card rounded-lg p-4 border-l-2 ${colors.border}`}>
-            <p className="text-xs text-muted-foreground font-medium tracking-wider mb-1">{s.label}</p>
+            <p className="text-xs text-muted-foreground font-medium tracking-wider mb-1 capitalize">
+              {label.toLowerCase()}
+            </p>
             <p className={`text-2xl font-bold ${colors.color}`}>{s.value}</p>
           </div>
         );

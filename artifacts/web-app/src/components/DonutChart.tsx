@@ -16,7 +16,7 @@ const DonutChart = ({ title, data }: DonutChartProps) => {
               data={data}
               cx="50%"
               cy="50%"
-              innerRadius={55}
+              innerRadius={65}
               outerRadius={80}
               paddingAngle={2}
               dataKey="value"
@@ -37,15 +37,15 @@ const DonutChart = ({ title, data }: DonutChartProps) => {
             />
           </PieChart>
         </ResponsiveContainer>
-        <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 justify-center">
+        <div className="flex flex-wrap gap-x-4 gap-y-2 mt-4 justify-center">
           {data.map((d, i) => (
-            <div key={i} className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <div key={i} className="flex items-center gap-2 text-xs text-muted-foreground">
               <span
-                className="w-2.5 h-2.5 rounded-sm"
+                className="w-2 h-2 rounded-full"
                 style={{ backgroundColor: d.color }}
               />
               <span>
-                {d.name} {d.value >= 1000 ? `${(d.value / 1000).toFixed(1)}k` : d.value}
+                {d.name} <span className="text-foreground font-medium ml-0.5">{d.value >= 1000 ? `${(d.value / 1000).toFixed(1)}k` : d.value}</span>
               </span>
             </div>
           ))}

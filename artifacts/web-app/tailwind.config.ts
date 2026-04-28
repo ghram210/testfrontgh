@@ -39,6 +39,18 @@ export default {
           DEFAULT: "hsl(var(--accent))",
           foreground: "hsl(var(--accent-foreground))",
         },
+        chart: {
+          critical: "hsl(var(--chart-critical))",
+          high: "hsl(var(--chart-high))",
+          medium: "hsl(var(--chart-medium))",
+          low: "hsl(var(--chart-low))",
+          green: "hsl(var(--chart-green))",
+          cyan: "hsl(var(--chart-cyan))",
+          orange: "hsl(var(--chart-orange))",
+          pink: "hsl(var(--chart-pink))",
+          purple: "hsl(var(--chart-purple))",
+          yellow: "hsl(var(--chart-yellow))",
+        },
         popover: {
           DEFAULT: "hsl(var(--popover))",
           foreground: "hsl(var(--popover-foreground))",
@@ -52,6 +64,7 @@ export default {
           high: "hsl(var(--severity-high))",
           medium: "hsl(var(--severity-medium))",
           low: "hsl(var(--severity-low))",
+          info: "hsl(var(--severity-info))",
           verylow: "hsl(var(--severity-very-low))",
         },
         sidebar: {

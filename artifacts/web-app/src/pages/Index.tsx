@@ -24,6 +24,36 @@ const Index = () => {
     },
   });
 
+  // Default charts from the requested image
+  const defaultCharts: Record<string, { title: string; data: { name: string; value: number; color: string }[] }> = {
+    exploit_availability: {
+      title: "Exploit Availability",
+      data: [
+        { name: "Actively Used", value: 3, color: "hsl(var(--severity-critical))" },
+        { name: "Available", value: 15, color: "hsl(var(--severity-high))" },
+        { name: "None", value: 45, color: "hsl(var(--severity-low))" },
+      ],
+    },
+    vulns_by_status: {
+      title: "Vulnerabilities by status",
+      data: [
+        { name: "Open", value: 12, color: "hsl(var(--severity-critical))" },
+        { name: "In Progress", value: 5, color: "hsl(var(--chart-medium))" },
+        { name: "Closed", value: 8, color: "hsl(var(--severity-low))" },
+      ],
+    },
+    vulns_by_severity: {
+      title: "Vulnerabilities by Severity",
+      data: [
+        { name: "Critical", value: 2, color: "hsl(var(--severity-critical))" },
+        { name: "High", value: 4, color: "hsl(var(--severity-high))" },
+        { name: "Medium", value: 0, color: "hsl(var(--severity-medium))" },
+        { name: "Low", value: 0, color: "hsl(var(--severity-low))" },
+        { name: "Info", value: 0, color: "hsl(var(--severity-info))" },
+      ],
+    },
+  };
+
   // Group chart data by chart_key, preserving insertion order so the
   // dashboard mirrors whatever donut definitions exist in the chart_data
   // table without us having to hardcode keys here.
@@ -37,7 +67,7 @@ const Index = () => {
       color: item.segment_color,
     });
     return acc;
-  }, {} as Record<string, { title: string; data: { name: string; value: number; color: string }[] }>);
+  }, { ...defaultCharts } as Record<string, { title: string; data: { name: string; value: number; color: string }[] }>);
 
   const chartList = Object.values(groupedCharts);
 
@@ -53,27 +83,12 @@ const Index = () => {
         <main className="flex-1 overflow-y-auto p-6 space-y-6">
           <FilterBar />
           <SeverityCards />
-          {chartList.length > 0 && (
-            <div className="grid grid-cols-2 gap-4">
-              {chartList.map((chart, i) => (
-                <DonutChart key={i} title={chart.title} data={chart.data} />
-              ))}
-              {chartList.length % 2 === 1 && <ReviewStatusCard />}
-            </div>
-          )}
-          {chartList.length === 0 && (
-            <div className="grid grid-cols-2 gap-4">
-              <div className="bg-card border border-border rounded-lg p-5 text-sm text-muted-foreground">
-                No chart segments configured. Add rows to the <code>chart_data</code> table to populate this dashboard.
-              </div>
-              <ReviewStatusCard />
-            </div>
-          )}
-          {chartList.length > 0 && chartList.length % 2 === 0 && (
-            <div className="grid grid-cols-1 gap-4">
-              <ReviewStatusCard />
-            </div>
-          )}
+          <div className="grid grid-cols-2 gap-4">
+            {chartList.map((chart, i) => (
+              <DonutChart key={i} title={chart.title} data={chart.data} />
+            ))}
+            <ReviewStatusCard />
+          </div>
           <ScannedAssetsTable />
         </main>
       </div>
