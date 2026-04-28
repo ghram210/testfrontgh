@@ -39,7 +39,24 @@ const Index = () => {
     return acc;
   }, {} as Record<string, { title: string; data: { name: string; value: number; color: string }[] }>);
 
-  const chartList = Object.values(groupedCharts);
+  const chartList = [
+    ...Object.values(groupedCharts),
+    {
+      title: "Vulnerabilities by type",
+      data: [
+        { name: "Misconf", value: 20, color: "hsl(var(--muted-foreground))" },
+        { name: "Vuln", value: 6000, color: "hsl(var(--chart-critical))" },
+        { name: "Unknown", value: 3800, color: "hsl(var(--chart-medium))" },
+      ],
+    },
+    {
+      title: "IP addresses by perimeter",
+      data: [
+        { name: "Official", value: 697, color: "hsl(var(--chart-cyan))" },
+        { name: "Unofficial", value: 736, color: "hsl(var(--chart-yellow))" },
+      ],
+    },
+  ];
 
   return (
     <div className="flex h-screen overflow-hidden">
@@ -53,27 +70,17 @@ const Index = () => {
         <main className="flex-1 overflow-y-auto p-6 space-y-6">
           <FilterBar />
           <SeverityCards />
-          {chartList.length > 0 && (
-            <div className="grid grid-cols-2 gap-4">
-              {chartList.map((chart, i) => (
-                <DonutChart key={i} title={chart.title} data={chart.data} />
-              ))}
-              {chartList.length % 2 === 1 && <ReviewStatusCard />}
-            </div>
-          )}
-          {chartList.length === 0 && (
-            <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-4">
+            {chartList.map((chart, i) => (
+              <DonutChart key={i} title={chart.title} data={chart.data} />
+            ))}
+            {Object.keys(groupedCharts).length === 0 && (
               <div className="bg-card border border-border rounded-lg p-5 text-sm text-muted-foreground">
-                No chart segments configured. Add rows to the <code>chart_data</code> table to populate this dashboard.
+                No dynamic chart segments configured. Add rows to the <code>chart_data</code> table to populate more data here.
               </div>
-              <ReviewStatusCard />
-            </div>
-          )}
-          {chartList.length > 0 && chartList.length % 2 === 0 && (
-            <div className="grid grid-cols-1 gap-4">
-              <ReviewStatusCard />
-            </div>
-          )}
+            )}
+            <ReviewStatusCard />
+          </div>
           <ScannedAssetsTable />
         </main>
       </div>
