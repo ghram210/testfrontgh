@@ -39,23 +39,7 @@ const Index = () => {
     return acc;
   }, {} as Record<string, { title: string; data: { name: string; value: number; color: string }[] }>);
 
-  const chartList = [
-    {
-      title: "Exploit Availability",
-      data: [
-        { name: "Actively Used", value: 3, color: "hsl(var(--chart-critical))" },
-        { name: "Available", value: 15, color: "hsl(var(--chart-high))" },
-        { name: "None", value: 45, color: "hsl(var(--chart-low))" },
-      ],
-    },
-    {
-      title: "Vulnerabilities by status",
-      data: [
-        { name: "Open", value: 12, color: "hsl(var(--chart-critical))" },
-        { name: "In Progress", value: 5, color: "hsl(var(--chart-medium))" },
-        { name: "Closed", value: 8, color: "hsl(var(--chart-low))" },
-      ],
-    },
+  const defaultCharts = [
     {
       title: "Vulnerabilities by Severity",
       data: [
@@ -66,7 +50,26 @@ const Index = () => {
         { name: "Info", value: 20, color: "hsl(var(--chart-purple))" },
       ],
     },
+    {
+      title: "By Status",
+      data: [
+        { name: "Open", value: 12, color: "hsl(var(--chart-critical))" },
+        { name: "In Progress", value: 5, color: "hsl(var(--chart-medium))" },
+        { name: "Resolved", value: 8, color: "hsl(var(--chart-low))" },
+        { name: "Accepted", value: 3, color: "hsl(var(--chart-purple))" },
+      ],
+    },
+    {
+      title: "By Exploit Status",
+      data: [
+        { name: "Actively Used", value: 2, color: "hsl(var(--chart-critical))" },
+        { name: "Available", value: 10, color: "hsl(var(--chart-high))" },
+        { name: "None", value: 30, color: "hsl(var(--chart-low))" },
+      ],
+    },
   ];
+
+  const chartList = [...defaultCharts, ...Object.values(groupedCharts)];
 
   return (
     <div className="flex h-screen overflow-hidden">
@@ -80,15 +83,10 @@ const Index = () => {
         <main className="flex-1 overflow-y-auto p-6 space-y-6">
           <FilterBar />
           <SeverityCards />
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {chartList.map((chart, i) => (
               <DonutChart key={i} title={chart.title} data={chart.data} />
             ))}
-            {Object.keys(groupedCharts).length === 0 && (
-              <div className="bg-card border border-border rounded-lg p-5 text-sm text-muted-foreground">
-                No dynamic chart segments configured. Add rows to the <code>chart_data</code> table to populate more data here.
-              </div>
-            )}
             <ReviewStatusCard />
           </div>
           <ScannedAssetsTable />
