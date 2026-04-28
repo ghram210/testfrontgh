@@ -7,7 +7,7 @@ import { config as loadEnv } from "dotenv";
 loadEnv({ path: path.resolve(import.meta.dirname, "../../.env") });
 loadEnv();
 
-const port = Number(process.env.PORT ?? "5173");
+const port = Number(process.env.PORT ?? "8081");
 const basePath = process.env.BASE_PATH ?? "/";
 
 export default defineConfig({

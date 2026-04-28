@@ -9,6 +9,8 @@ const severityColorMap: Record<string, { color: string; border: string }> = {
   CRITICAL: { color: "text-severity-critical", border: "border-severity-critical/30" },
 };
 
+const DEFAULT_SEVERITIES = ["CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"];
+
 const SeverityCards = () => {
   const { data: stats = [] } = useQuery({
     queryKey: ["severity_stats"],
@@ -22,16 +24,28 @@ const SeverityCards = () => {
     },
   });
 
+  // Merge database stats with default placeholders to ensure all 5 cards always show
+  const mergedStats = DEFAULT_SEVERITIES.map((label) => {
+    const dbStat = stats.find(
+      (s) => s.label === label || (label === "INFO" && s.label === "VERY LOW")
+    );
+    return {
+      label: label,
+      value: dbStat?.value ?? 0,
+      id: dbStat?.id ?? label,
+    };
+  });
+
   return (
     <div className="grid grid-cols-5 gap-4">
-      {stats.map((s) => {
-        const label = s.label === "VERY LOW" ? "Info" : s.label;
-        const lookupLabel = s.label === "VERY LOW" ? "INFO" : s.label;
-        const colors = severityColorMap[lookupLabel] || { color: "text-foreground", border: "border-border" };
+      {mergedStats.map((s) => {
+        const colors = severityColorMap[s.label] || { color: "text-foreground", border: "border-border" };
+        const displayLabel = s.label.charAt(0) + s.label.slice(1).toLowerCase();
+
         return (
           <div key={s.id} className={`bg-card rounded-lg p-4 border-l-2 ${colors.border}`}>
-            <p className="text-xs text-muted-foreground font-medium tracking-wider mb-1 capitalize">
-              {label.toLowerCase()}
+            <p className="text-xs text-muted-foreground font-medium tracking-wider mb-1">
+              {displayLabel}
             </p>
             <p className={`text-2xl font-bold ${colors.color}`}>{s.value}</p>
           </div>

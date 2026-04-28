@@ -24,7 +24,7 @@ const Index = () => {
     },
   });
 
-  // Default charts from the requested image
+  // Default charts definitions
   const defaultCharts: Record<string, { title: string; data: { name: string; value: number; color: string }[] }> = {
     exploit_availability: {
       title: "Exploit Availability",
@@ -54,22 +54,26 @@ const Index = () => {
     },
   };
 
-  // Group chart data by chart_key, preserving insertion order so the
-  // dashboard mirrors whatever donut definitions exist in the chart_data
-  // table without us having to hardcode keys here.
+  // Group chart data by chart_key
   const groupedCharts = chartData.reduce((acc, item) => {
     if (!acc[item.chart_key]) {
       acc[item.chart_key] = { title: item.chart_title, data: [] };
     }
-    acc[item.chart_key].data.push({
-      name: item.segment_name,
-      value: item.segment_value,
-      color: item.segment_color,
-    });
+    // Check if segment already exists to avoid duplication if merging with defaults
+    const exists = acc[item.chart_key].data.some(d => d.name === item.segment_name);
+    if (!exists) {
+      acc[item.chart_key].data.push({
+        name: item.segment_name,
+        value: item.segment_value,
+        color: item.segment_color,
+      });
+    } else {
+      // Update value if it exists
+      const idx = acc[item.chart_key].data.findIndex(d => d.name === item.segment_name);
+      acc[item.chart_key].data[idx].value = item.segment_value;
+    }
     return acc;
-  }, { ...defaultCharts } as Record<string, { title: string; data: { name: string; value: number; color: string }[] }>);
-
-  const chartList = Object.values(groupedCharts);
+  }, JSON.parse(JSON.stringify(defaultCharts)) as Record<string, { title: string; data: { name: string; value: number; color: string }[] }>);
 
   return (
     <div className="flex h-screen overflow-hidden">
@@ -84,10 +88,27 @@ const Index = () => {
           <FilterBar />
           <SeverityCards />
           <div className="grid grid-cols-2 gap-4">
-            {chartList.map((chart, i) => (
-              <DonutChart key={i} title={chart.title} data={chart.data} />
-            ))}
+            <DonutChart
+              title={groupedCharts.exploit_availability.title}
+              data={groupedCharts.exploit_availability.data}
+            />
+            <DonutChart
+              title={groupedCharts.vulns_by_status.title}
+              data={groupedCharts.vulns_by_status.data}
+            />
+            <DonutChart
+              title={groupedCharts.vulns_by_severity.title}
+              data={groupedCharts.vulns_by_severity.data}
+            />
             <ReviewStatusCard />
+
+            {/* Any other dynamic charts from the database */}
+            {Object.entries(groupedCharts)
+              .filter(([key]) => !['exploit_availability', 'vulns_by_status', 'vulns_by_severity'].includes(key))
+              .map(([key, chart]) => (
+                <DonutChart key={key} title={chart.title} data={chart.data} />
+              ))
+            }
           </div>
           <ScannedAssetsTable />
         </main>

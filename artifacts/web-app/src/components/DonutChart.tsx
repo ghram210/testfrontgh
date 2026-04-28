@@ -45,7 +45,7 @@ const DonutChart = ({ title, data }: DonutChartProps) => {
                 style={{ backgroundColor: d.color }}
               />
               <span>
-                {d.name} <span className="text-foreground font-medium ml-0.5">{d.value >= 1000 ? `${(d.value / 1000).toFixed(1)}k` : d.value}</span>
+                {d.name} <span className="text-foreground font-bold ml-0.5">{d.value >= 1000 ? `${(d.value / 1000).toFixed(1)}k` : d.value}</span>
               </span>
             </div>
           ))}
