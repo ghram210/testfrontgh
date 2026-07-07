@@ -25,19 +25,19 @@ const ReviewStatusCard = () => {
       <div className="space-y-4">
         <div className="grid grid-cols-2 gap-3 text-xs">
           <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-severity-low" />
+            <span className="w-2 h-2 rounded-full bg-severity-low" />
             <span className="text-muted-foreground">IP reviewed: <strong className="text-foreground">{ip?.reviewed ?? 0}</strong></span>
           </div>
           <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-severity-medium" />
+            <span className="w-2 h-2 rounded-full bg-chart-yellow" />
             <span className="text-muted-foreground">IP not reviewed: <strong className="text-foreground">{ip?.not_reviewed?.toLocaleString() ?? 0}</strong></span>
           </div>
           <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-severity-high" />
+            <span className="w-2 h-2 rounded-full bg-severity-high" />
             <span className="text-muted-foreground">Root reviewed: <strong className="text-foreground">{root?.reviewed ?? 0}</strong></span>
           </div>
           <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-severity-critical" />
+            <span className="w-2 h-2 rounded-full bg-severity-critical" />
             <span className="text-muted-foreground">Root not reviewed: <strong className="text-foreground">{root?.not_reviewed ?? 0}</strong></span>
           </div>
         </div>
